@@ -1,4 +1,4 @@
-package main
+﻿package main
 
 import (
 	"database/sql"
@@ -16,7 +16,21 @@ func (s ParcelStore) Add(p Parcel) (int, error) {
 	// реализуйте добавление строки в таблицу parcel, используйте данные из переменной p
 
 	// верните идентификатор последней добавленной записи
-	return 0, nil
+	res, err := s.db.Exec(`
+		INSERT INTO parcel (client, status, address, created_at) 
+		VALUES (?, ?, ?, ?)
+	`, p.Client, p.Status, p.Address, p.CreatedAt)
+	if err != nil {
+		return 0, err
+	}
+
+	
+	lastID, err := res.LastInsertId()
+	if err != nil {
+		return 0, err
+	}
+
+	return int(lastID), nil
 }
 
 func (s ParcelStore) Get(number int) (Parcel, error) {
