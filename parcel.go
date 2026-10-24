@@ -2,6 +2,7 @@
 
 import (
 	"database/sql"
+"fmt"
 )
 
 type ParcelStore struct {
@@ -40,7 +41,7 @@ func (s ParcelStore) Get(number int) (Parcel, error) {
 	// заполните объект Parcel данными из таблицы
 	p := Parcel{}
 
-	query := `SELECT number, client, status, address, created_at FROM parcel WHERE number = :number`
+//	query := `SELECT number, client, status, address, created_at FROM parcel WHERE number = :number`
 
 	row := s.db.QueryRow("SELECT number, client, status, address, created_at FROM parcel WHERE number = ?", number)
 			
@@ -67,7 +68,7 @@ func (s ParcelStore) GetByClient(client int) ([]Parcel, error) {
 
 	for rows.Next() {
 		var p Parcel
-		err := rows.Scan(&p.number, &p.client, &p.status, &p.address, &p.created_at)
+		err := rows.Scan(&p.Number, &p.Client, &p.Status, &p.Address, &p.CreatedAt)
 		if err != nil {
 			return nil, err
 		}
@@ -125,7 +126,7 @@ func (s ParcelStore) Delete(number int) error {
 	// реализуйте удаление строки из таблицы parcel
 	// удалять строку можно только если значение статуса registered
 
-	res, err := s.db.Exec("DELETE FROM parcel WHERE number = $1 AND status = 'registered'", number)
+	res, err := s.db.Exec("DELETE FROM parcel WHERE number = ? AND status = 'registered'", number)
 	if err != nil {
 		return err
 	}
