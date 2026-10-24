@@ -1,12 +1,13 @@
-package main
+﻿package main
 
 import (
+//	"fmt"
 	"database/sql"
 	"math/rand"
 	"testing"
 	"time"
-
-	"github.com/stretchr/testify/require"
+"github.com/stretchr/testify/assert"
+//	"github.com/stretchr/testify/require"
 )
 
 var (
@@ -31,91 +32,216 @@ func getTestParcel() Parcel {
 // TestAddGetDelete проверяет добавление, получение и удаление посылки
 func TestAddGetDelete(t *testing.T) {
 	// prepare
-	db, err := // настройте подключение к БД
+	db, err := sql.Open("sqlite", "tracker.db") 
+	if err != nil {
+		t.Fatalf("не удалось подключиться к базе данных: %v", err)
+	}
+	defer db.Close()
+
 	store := NewParcelStore(db)
 	parcel := getTestParcel()
 
 	// add
 	// добавьте новую посылку в БД, убедитесь в отсутствии ошибки и наличии идентификатора
+	id, err := store.Add(parcel)
+	if err != nil {
+		t.Fatalf("ошибка при добавлении посылки: %v", err)
+	}
+	if id == 0 {
+		t.Fatal("ожидался ненулевой идентификатор (ID) посылки")
+	}
+	parcel.Number = id // сохраняем сгенерированный ID в исходную структуру для последующего сравнения
 
 	// get
 	// получите только что добавленную посылку, убедитесь в отсутствии ошибки
+	storedParcel, err := store.Get(id)
+	if err != nil {
+		t.Fatalf("ошибка при получении посылки: %v", err)
+	}
+
 	// проверьте, что значения всех полей в полученном объекте совпадают со значениями полей в переменной parcel
+	if storedParcel.Number != parcel.Number ||
+		storedParcel.Client != parcel.Client ||
+		storedParcel.Status != parcel.Status ||
+		storedParcel.Address != parcel.Address ||
+		storedParcel.CreatedAt != parcel.CreatedAt {
+		t.Errorf("полученные данные не совпадают с ожидаемыми.\nПолучено: %+v\nОжидалось: %+v", storedParcel, parcel)
+	}
 
 	// delete
 	// удалите добавленную посылку, убедитесь в отсутствии ошибки
+	err = store.Delete(id)
+	if err != nil {
+		t.Fatalf("ошибка при удалении посылки: %v", err)
+	}
+
 	// проверьте, что посылку больше нельзя получить из БД
+	_, err = store.Get(id)
+	if err == nil {
+		t.Error("ожидалась ошибка при получении удаленной посылки, но ошибка не возвращена")
+	}
 }
 
 // TestSetAddress проверяет обновление адреса
 func TestSetAddress(t *testing.T) {
 	// prepare
-	db, err := // настройте подключение к БД
+	
+	db, err := sql.Open("sqlite", "tracker.db") 
+	if err != nil {
+		t.Fatalf("failed to open db: %v", err)
+	}
+	defer db.Close()
+
+	store := NewParcelStore(db)
+	parcel := getTestParcel()
+	
 
 	// add
-	// добавьте новую посылку в БД, убедитесь в отсутствии ошибки и наличии идентификатора
+	// Добавляем новую посылку в БД
+
+	id, err := store.Add(parcel)
+	if err != nil {
+		t.Fatalf("ошибка при добавлении посылки: %v", err)
+	}
+	if id == 0 {
+		t.Fatal("ожидался ненулевой идентификатор (ID) посылки")
+	}
+
 
 	// set address
-	// обновите адрес, убедитесь в отсутствии ошибки
+	// Обновляем адрес, убеждаемся в отсутствии ошибки
 	newAddress := "new test address"
+	_, err = db.Exec("UPDATE parcel SET address = ? WHERE number = ?", newAddress, id)
+	if err != nil {
+		t.Fatalf("failed to update address: %v", err)
+	}
 
 	// check
-	// получите добавленную посылку и убедитесь, что адрес обновился
+	// Получаем добавленную посылку
+	var p Parcel
+	err = db.QueryRow("SELECT number, address FROM parcel WHERE number = ?", id).Scan(&p.Number, &p.Address)
+	if err != nil {
+		t.Fatalf("failed to select parcel: %v", err)
+	}
+
+	// Убеждаемся, что адрес обновился
+	if p.Address != newAddress {
+		t.Errorf("expected address %q, got %q", newAddress, p.Address)
+	}
 }
 
 // TestSetStatus проверяет обновление статуса
 func TestSetStatus(t *testing.T) {
 	// prepare
-	db, err := // настройте подключение к БД
+	// Настраиваем подключение к тестовой БД (передавайте параметры через конфиг или ENV)
+	db, err := sql.Open("sqlite", "tracker.db") 
+	if err != nil {
+		t.Fatalf("не удалось подключиться к БД: %v", err)
+	}
+	defer db.Close()
+
+	// Убедимся, что соединение живое
+	if err := db.Ping(); err != nil {
+		t.Fatalf("БД недоступна: %v", err)
+	}
+
+	// Данные для теста
+	
+	targetStatus := "delivered"
+
+	// add
+	// Добавляем новую посылку в БД, возвращая её ID
+	store := NewParcelStore(db)
+	parcel := getTestParcel()
 
 	// add
 	// добавьте новую посылку в БД, убедитесь в отсутствии ошибки и наличии идентификатора
+	id, err := store.Add(parcel)
+	if err != nil {
+		t.Fatalf("ошибка при добавлении посылки: %v", err)
+	}
+	if id == 0 {
+		t.Fatal("ожидался ненулевой идентификатор (ID) посылки")
+	}
 
 	// set status
-	// обновите статус, убедитесь в отсутствии ошибки
+var actualParcel Parcel
+	// Обновляем статус посылки по её ID
+
+	updateQuery := `UPDATE parcel SET status = $1  WHERE number = $2`
+	_, err = db.Exec(updateQuery, targetStatus, id)
+	if err != nil {
+		t.Fatalf("не удалось обновить статус посылки: %v", err)
+	}
 
 	// check
-	// получите добавленную посылку и убедитесь, что статус обновился
+	// Получаем добавленную посылку и убеждаемся, что статус обновился
+	
+	selectQuery := `SELECT number, status  FROM parcel WHERE number = $1`
+	err = db.QueryRow(selectQuery, id).Scan(&actualParcel.Number, &actualParcel.Status)
+	if err != nil {
+		t.Fatalf("не удалось получить посылку для проверки: %v", err)
+	}
+
+	// Проверяем соответствие статуса
+	if actualParcel.Status != targetStatus {
+		t.Errorf("ожидался статус %q, но получен %q", targetStatus, actualParcel.Status)
+	}
 }
 
 // TestGetByClient проверяет получение посылок по идентификатору клиента
 func TestGetByClient(t *testing.T) {
-	// prepare
-	db, err := // настройте подключение к БД
+	
+	db, err := sql.Open("sqlite", "tracker.db") 
+	assert.NoError(t, err)
+	defer db.Close()
 
+	store := NewParcelStore(db) 
 	parcels := []Parcel{
 		getTestParcel(),
 		getTestParcel(),
 		getTestParcel(),
 	}
+
 	parcelMap := map[int]Parcel{}
 
-	// задаём всем посылкам один и тот же идентификатор клиента
+	
 	client := randRange.Intn(10_000_000)
 	parcels[0].Client = client
 	parcels[1].Client = client
 	parcels[2].Client = client
 
-	// add
+	
 	for i := 0; i < len(parcels); i++ {
-		id, err := // добавьте новую посылку в БД, убедитесь в отсутствии ошибки и наличии идентификатора
+		
+		id, err := store.Add(parcels[i])
+		assert.NoError(t, err)
+		assert.NotEmpty(t, id)
 
-		// обновляем идентификатор добавленной у посылки
+		
 		parcels[i].Number = id
 
-		// сохраняем добавленную посылку в структуру map, чтобы её можно было легко достать по идентификатору посылки
+		
 		parcelMap[id] = parcels[i]
 	}
 
-	// get by client
-	storedParcels, err := // получите список посылок по идентификатору клиента, сохранённого в переменной client
-	// убедитесь в отсутствии ошибки
-	// убедитесь, что количество полученных посылок совпадает с количеством добавленных
+	
+	storedParcels, err := store.GetByClient(client)
+	
+	assert.NoError(t, err)
+	
+	assert.Len(t, storedParcels, len(parcels))
 
-	// check
+	
 	for _, parcel := range storedParcels {
-		// в parcelMap лежат добавленные посылки, ключ - идентификатор посылки, значение - сама посылка
-		// убедитесь, что все посылки из storedParcels есть в parcelMap
-		// убедитесь, что значения полей полученных посылок заполнены верно
+		
+		mappedParcel, exists := parcelMap[parcel.Number]
+		assert.True(t, exists)
+
+		
+		assert.Equal(t, mappedParcel.Client, parcel.Client)
+		assert.Equal(t, mappedParcel.Status, parcel.Status)
+		assert.Equal(t, mappedParcel.Address, parcel.Address)
+		assert.Equal(t, mappedParcel.CreatedAt, parcel.CreatedAt)
 	}
 }
