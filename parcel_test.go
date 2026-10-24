@@ -98,7 +98,6 @@ func TestSetAddress(t *testing.T) {
 
 	// add
 	// Добавляем новую посылку в БД
-//	initialAddress := "old test address"
 
 	id, err := store.Add(parcel)
 	if err != nil {
@@ -167,11 +166,7 @@ func TestSetStatus(t *testing.T) {
 
 	// set status
 var actualParcel Parcel
-	//selectQuery := `SELECT number, status  FROM parcel WHERE number = $1`
-	//err = db.QueryRow(selectQuery, id).Scan(&actualParcel.Number, &actualParcel.Status)
-//oldstatus:=actualParcel.Status
 	// Обновляем статус посылки по её ID
-
 
 	updateQuery := `UPDATE parcel SET status = $1  WHERE number = $2`
 	_, err = db.Exec(updateQuery, targetStatus, id)
